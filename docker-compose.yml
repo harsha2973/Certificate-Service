@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cert_user
+      POSTGRES_PASSWORD: cert_password
+      POSTGRES_DB: certificates
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cert_user -d certificates"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://cert_user:cert_password@db:5432/certificates
+      STORAGE_DIR: /app/data/certificates
+      PROCESSING_MODE: background
+      WORKER_THREADS: 2
+      RESUME_UNFINISHED_JOBS: "true"
+    volumes:
+      - cert_storage:/app/data/certificates
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  cert_storage:
